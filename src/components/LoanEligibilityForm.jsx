@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   TextField,
   Button,
@@ -20,76 +20,113 @@ import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import axios from "axios";
 
+// Field Configuration
 const fieldConfig = [
   { label: "NO OF DEPENDENTS", name: "no_of_dependents", type: "number" },
-  { label: "EDUCATION", name: "education", type: "select", options: ["Graduate", "Non-Graduate"] },
-  { label: "SELF EMPLOYED", name: "self_employed", type: "radio", options: ["Yes", "No"] },
+  {
+    label: "EDUCATION",
+    name: "education",
+    type: "select",
+    options: ["Graduate", "Non-Graduate"],
+  },
+  {
+    label: "SELF EMPLOYED",
+    name: "self_employed",
+    type: "radio",
+    options: ["Yes", "No"],
+  },
   { label: "INCOME (ANNUAL)", name: "income_annum", type: "number" },
   { label: "LOAN AMOUNT", name: "loan_amount", type: "number" },
-  { label: "LOAN TERM (2-20 YEARS)", name: "loan_term", type: "number", min: 2, max: 20 },
-  { label: "CIBIL SCORE (300-900)", name: "cibil_score", type: "number", min: 300, max: 900 },
-  { label: "RESIDENTIAL ASSETS VALUE", name: "residential_assets_value", type: "number" },
-  { label: "COMMERCIAL ASSETS VALUE", name: "commercial_assets_value", type: "number" },
+  {
+    label: "LOAN TERM (2-20 YEARS)",
+    name: "loan_term",
+    type: "number",
+    min: 2,
+    max: 20,
+  },
+  {
+    label: "CIBIL SCORE (300-900)",
+    name: "cibil_score",
+    type: "number",
+    min: 300,
+    max: 900,
+  },
+  {
+    label: "RESIDENTIAL ASSETS VALUE",
+    name: "residential_assets_value",
+    type: "number",
+  },
+  {
+    label: "COMMERCIAL ASSETS VALUE",
+    name: "commercial_assets_value",
+    type: "number",
+  },
   { label: "LUXURY ASSETS VALUE", name: "luxury_assets_value", type: "number" },
   { label: "BANK ASSET VALUE", name: "bank_asset_value", type: "number" },
 ];
 
 // Yup Validation Schema
-const validationSchema = Yup.object().shape({
-  no_of_dependents: Yup.number()
-    .required("Please specify the number of dependents.")
-    .min(0, "The number of dependents cannot be negative."),
-  education: Yup.string().required("Please select your education level."),
-  self_employed: Yup.string().required("Please specify if you are self-employed."),
-  income_annum: Yup.number()
-    .required("Please provide your annual income.")
-    .min(1, "Annual income must be a positive number."),
-  loan_amount: Yup.number()
-    .required("Please enter the loan amount you want to apply for.")
-    .min(1, "Loan amount must be a positive number."),
-  loan_term: Yup.number()
-    .required("Please specify the loan term in years.")
-    .min(2, "Loan term must be at least 2 years.")
-    .max(20, "Loan term cannot exceed 20 years."),
-  cibil_score: Yup.number()
-    .required("Please provide your CIBIL score.")
-    .min(300, "CIBIL score must be at least 300.")
-    .max(900, "CIBIL score cannot exceed 900."),
-  residential_assets_value: Yup.number()
-    .required("Please provide the value of your residential assets.")
-    .min(0, "Residential asset value cannot be negative."),
-  commercial_assets_value: Yup.number()
-    .required("Please provide the value of your commercial assets.")
-    .min(0, "Commercial asset value cannot be negative."),
-  luxury_assets_value: Yup.number()
-    .required("Please provide the value of your luxury assets.")
-    .min(0, "Luxury asset value cannot be negative."),
-  bank_asset_value: Yup.number()
-    .required("Please provide the value of your bank assets.")
-    .min(0, "Bank asset value cannot be negative."),
-});
-
+const validationSchema = Yup.object().shape(
+  fieldConfig.reduce((acc, field) => {
+    if (field.type === "number") {
+      acc[field.name] = Yup.number()
+        .required(`Please provide your ${field.label.toLowerCase()}.`)
+        .min(0, `${field.label} cannot be negative.`);
+    } else {
+      acc[field.name] = Yup.string().required(
+        `Please provide your ${field.label.toLowerCase()}.`
+      );
+    }
+    return acc;
+  }, {})
+);
 
 const LoanEligibilityForm = () => {
-  const initialValues = fieldConfig.reduce((acc, field) => ({ ...acc, [field.name]: "" }), {});
+  const [results, setResults] = useState([]); // Ensure results is initialized as an array
+  const [loaneligibility,seteligibility]=useState([])
+  const initialValues = fieldConfig.reduce(
+    (acc, field) => ({ ...acc, [field.name]: "" }),
+    {}
+  );
 
-  const handleSubmit = (values, { setSubmitting, setFieldValue }) => {
-    const { income_annum, loan_amount, cibil_score, loan_term } = values;
-    const income = parseFloat(income_annum);
-    const loan = parseFloat(loan_amount);
-    const cibil = parseInt(cibil_score, 10);
-    const term = parseInt(loan_term, 10);
+  const handleSubmit = async (values, { setSubmitting }) => {
+    const payload = {
+      model: "RandomForest", // Replace with the desired model
+      features: {
+        loan_id: 1, // Assuming a static loan_id for now
+        ...values,
+      },
+    };
 
-    let result;
-    if (cibil >= 750 && loan < income * 5 && term >= 2 && term <= 20) {
-      result = "Eligible for Loan";
-    } else {
-      result = "Not Eligible for Loan";
+    try {
+      const response = await axios.post("http://127.0.0.1:5000/predict", payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      console.log("Response from server:", response.data);
+      seteligibility(response.data)
+    } catch (error) {
+      console.error("Error sending data:", error);
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    setSubmitting(false);
-    setFieldValue("result", result);
+  const displayingmodel = async () => {
+    try {
+      const response = await axios.get("http://127.0.0.1:5000/metrics");
+      console.log("API Response:", response.data);
+      const formattedResults = Object.keys(response.data).map((key) => ({
+        name: key,
+        ...response.data[key],
+      }));
+      setResults(formattedResults);
+    } catch (error) {
+      console.error("API Error:", error);
+    }
   };
 
   const renderField = (field, errors, touched, handleChange) => {
@@ -105,7 +142,6 @@ const LoanEligibilityForm = () => {
             helperText={touched[field.name] && errors[field.name]}
             fullWidth
             variant="outlined"
-            sx={{ backgroundColor: "#f9f9f9", borderRadius: 2 }}
           >
             {field.options.map((option, i) => (
               <MenuItem key={i} value={option}>
@@ -114,31 +150,27 @@ const LoanEligibilityForm = () => {
             ))}
           </TextField>
         );
-
       case "radio":
         return (
           <FormControl>
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              {field.label}
-            </Typography>
+            <Typography>{field.label}</Typography>
             <RadioGroup
               row
               name={field.name}
               onChange={handleChange}
-              error={touched[field.name] && Boolean(errors[field.name])}
+              value={field.value}
             >
               {field.options.map((option, i) => (
-                <FormControlLabel key={i} value={option} control={<Radio />} label={option} />
+                <FormControlLabel
+                  key={i}
+                  value={option}
+                  control={<Radio />}
+                  label={option}
+                />
               ))}
             </RadioGroup>
-            {touched[field.name] && errors[field.name] && (
-              <Typography variant="caption" color="error">
-                {errors[field.name]}
-              </Typography>
-            )}
           </FormControl>
         );
-
       default:
         return (
           <TextField
@@ -151,7 +183,6 @@ const LoanEligibilityForm = () => {
             fullWidth
             inputProps={field.min ? { min: field.min, max: field.max } : {}}
             variant="outlined"
-            sx={{ backgroundColor: "#f9f9f9", borderRadius: 2 }}
           />
         );
     }
@@ -159,41 +190,16 @@ const LoanEligibilityForm = () => {
 
   return (
     <Box>
-      <AppBar position="static" sx={{ backgroundColor: "#1976d2" }}>
+      <AppBar position="static">
         <Toolbar>
-          <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "center" }}>
-            <AccountBalanceIcon sx={{ fontSize: 40, color: "#fff", mr: 1 }} />
-            <Typography variant="h5" sx={{ fontWeight: "bold", color: "#fff" }}>
-              Loan Eligibility App
-            </Typography>
-          </Box>
+          <Typography variant="h6">Loan Eligibility App</Typography>
         </Toolbar>
       </AppBar>
-
-      <Box
-        sx={{
-          minHeight: "calc(100vh - 64px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "linear-gradient(to bottom right, #ece9e6, #ffffff)",
-          p: 2,
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            maxWidth: 900,
-            width: "100%",
-            p: 4,
-            borderRadius: 4,
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          <Typography variant="h4" sx={{ fontWeight: "bold", textAlign: "center", mb: 3 }}>
+      <Box sx={{ padding: 3 }}>
+        <Paper sx={{ padding: 3 }}>
+          <Typography variant="h4" sx={{ marginBottom: 3 }}>
             Loan Eligibility Checker
           </Typography>
-
           <Formik
             initialValues={initialValues}
             validationSchema={validationSchema}
@@ -201,56 +207,57 @@ const LoanEligibilityForm = () => {
           >
             {({ errors, touched, handleChange, isSubmitting }) => (
               <Form>
-                <Grid container spacing={3}>
+                <Grid container spacing={2}>
                   {fieldConfig.map((field, index) => (
-                    <Grid item xs={12} md={6} key={index}>
+                    <Grid item xs={12} sm={6} key={index}>
                       {renderField(field, errors, touched, handleChange)}
                     </Grid>
                   ))}
                 </Grid>
-
-                <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+                <Box sx={{ textAlign: "center", marginTop: 2 }}>
                   <Button
                     type="submit"
                     variant="contained"
-                    sx={{
-                      py: 1.5,
-                      backgroundColor: "green",
-                      "&:hover": { backgroundColor: "darkgreen" },
-                      fontWeight: "bold",
-                    }}
-                    startIcon={<AttachMoneyIcon />}
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? "Submitting..." : "Check Eligibility"}
                   </Button>
                 </Box>
+
+                {loaneligibility && (
+      <Box sx={{ marginTop: 3, textAlign: "center" }}>
+        <Typography
+          variant="h6"
+          color={loaneligibility.loan_status === "Approved" ? "green" : "red"}
+        >
+          Loan Status: {loaneligibility.loan_status}
+        </Typography>
+        <Typography variant="subtitle1">
+          Selected Model: {loaneligibility.selected_model}
+        </Typography>
+      </Box>
+    )}
               </Form>
             )}
           </Formik>
-
-          {initialValues.result && (
-            <Typography
-              variant="h6"
-              sx={{
-                mt: 3,
-                textAlign: "center",
-                color: initialValues.result.includes("Eligible") ? "green" : "red",
-                fontWeight: "bold",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1,
-              }}
-            >
-              {initialValues.result.includes("Eligible") ? (
-                <CheckCircleOutlineIcon color="success" />
-              ) : (
-                <ErrorOutlineIcon color="error" />
-              )}
-              {initialValues.result}
-            </Typography>
-          )}
+          <Box sx={{ marginTop: 3 }}>
+            <Button variant="outlined" onClick={displayingmodel}>
+              Display Model Results
+            </Button>
+            {results.length > 0 && (
+              <div>
+                <h2>Model Results</h2>
+                <ul>
+                  {results.map((result, index) => (
+                    <li key={index}>
+                      <strong>{result.name}:</strong> Accuracy:{" "}
+                      {(result.accuracy * 100).toFixed(2)}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Box>
         </Paper>
       </Box>
     </Box>
